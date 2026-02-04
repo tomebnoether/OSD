@@ -82,8 +82,12 @@ $GitHubAccount = 'tomebnoether'
 $GitHubRepo = 'OSD'
 $GitHubTree = 'main'
 $GitHubDriverFolderName = 'Drivers'
-$RepoURL = 'https://github.com/' + $GitHubAccount + '/' + $GitHubRepo + '/' + $GitHubTree + '/' + $GitHubDriverFolderName + '/' + $Manufacturer + '/' + $Model
+$ModelShortened = $Model -replace '\s','%20'
+$RepoURL = 'https://github.com/' + $GitHubAccount + '/' + $GitHubRepo + '/raw/refs/heads/' + $GitHubTree + '/' + $GitHubDriverFolderName + '/' + $Manufacturer + '/' + $ModelShortened + '.zip'
 $RepoURL = '"' + $repourl + '"'
+$DriversFolder = 'C:\OSDCloud\Drivers\'
+$DriverZip = $DriversFolder + $model + '.zip'
+$DriverFolder = $DriversFolder + $Model
 
 #Set OSDCloud Vars
 $Global:MyOSDCloud = [ordered]@{
@@ -111,47 +115,26 @@ if ($DriverPack){
 }
 #$Global:MyOSDCloud.DriverPackName = "None"
 
-<#If Drivers are expanded on the USB Drive, disable installing a Driver Pack
-if (Test-DISMFromOSDCloudUSB -eq $true){
+#If Drivers are expanded on the USB Drive, disable installing a Driver Pack
+if (Test-DISMFromOSDCloudUSB){
     Write-Host "Found Driver Pack Extracted on Cloud USB Flash Drive, disabling Driver Download via OSDCloud" -ForegroundColor Green
     if ($Global:MyOSDCloud.SyncMSUpCatDriverUSB -eq $true){
         write-host "Setting DriverPackName to 'Microsoft Update Catalog'"
         $Global:MyOSDCloud.DriverPackName = 'Microsoft Update Catalog'
     }
     else {
-    $urlcheck = $(curl $repoUrl -UseBasicParsing).StatusCode
-        if ($urlcheck -eq "200")
+    mkdir $driversFolder
+    $urlcheck = $(curl $repoUrl -OutFile $DriverZip).StatusCode
+        if ($urlcheck -eq "200"){
+        Write-Host "Found Driver Pack on GitHub-Repo, disabling Driver Download via OSDCloud" -ForegroundColor Green
+        expand-archive -path $DriverZip -DestinationPath $DriversFolder$model -force
+        remove-item $driverzip -force -ErrorAction Ignore
+        }
         write-host "Setting DriverPackName to 'None'"
         $Global:MyOSDCloud.DriverPackName = "None"
     }
 }
-#>
-#Enable HPIA | Update HP BIOS | Update HP TPM
- 
-if (Test-HPIASupport){
-    Write-SectionHeader -Message "Detected HP Device, Enabling HPIA, HP BIOS and HP TPM Updates"
-    #$Global:MyOSDCloud.DevMode = [bool]$True
-    $Global:MyOSDCloud.HPTPMUpdate = [bool]$True
-    if ($Product -ne '83B2' -and $Model -notmatch "zbook"){$Global:MyOSDCloud.HPIAALL = [bool]$true} #I've had issues with this device and HPIA
-    #{$Global:MyOSDCloud.HPIAALL = [bool]$true}
-    $Global:MyOSDCloud.HPBIOSUpdate = [bool]$true
-    #$Global:MyOSDCloud.HPCMSLDriverPackLatest = [bool]$true #In Test 
-    #Set HP BIOS Settings to what I want:
-    iex (irm https://raw.githubusercontent.com/gwblok/garytown/master/OSD/CloudOSD/Manage-HPBiosSettings.ps1)
-    Manage-HPBiosSettings -SetSettings
-}
 
-if ($Manufacturer -match "Lenovo") {
-    #Set Lenovo BIOS Settings to what I want:
-    iex (irm https://raw.githubusercontent.com/gwblok/garytown/master/OSD/CloudOSD/Manage-LenovoBiosSettings.ps1)
-    try {
-        Manage-LenovoBIOSSettings -SetSettings
-    }
-    catch {
-        <#Do this if a terminating exception happens#>
-    }
-    
-}
 
 
 #write variables to console
@@ -170,7 +153,10 @@ Start-OSDCloud -OSName $OSName -OSEdition $OSEdition -OSActivation $OSActivation
 
 Write-SectionHeader -Message "OSDCloud Process Complete, Running Custom Actions From Script Before Reboot"
 
+#region Post Deployment Tasks
 
+#Driver installation
+iex (irm https://raw.githubusercontent.com/tomebnoether/OSD/refs/heads/main/Driver-Injection.ps1)
 
 <#Used in Testing "Beta Gary Modules which I've updated on the USB Stick"
 $OfflineModulePath = (Get-ChildItem -Path "C:\Program Files\WindowsPowerShell\Modules\osd" | Where-Object {$_.Attributes -match "Directory"} | Select-Object -Last 1).fullname
@@ -182,12 +168,10 @@ if (Test-path -path "x:\windows\system32\cmtrace.exe"){
     copy-item "x:\windows\system32\cmtrace.exe" -Destination "C:\Windows\System\cmtrace.exe" -verbose
 }
 
-if ($Manufacturer -match "Lenovo") {
-    $PowerShellSavePath = 'C:\Program Files\WindowsPowerShell'
-    Write-Host "Copy-PSModuleToFolder -Name LSUClient to $PowerShellSavePath\Modules"
-    Copy-PSModuleToFolder -Name LSUClient -Destination "$PowerShellSavePath\Modules"
-    Write-Host "Copy-PSModuleToFolder -Name Lenovo.Client.Scripting to $PowerShellSavePath\Modules"
-    Copy-PSModuleToFolder -Name Lenovo.Client.Scripting -Destination "$PowerShellSavePath\Modules"
-}
+#endregion
+
+
+
+
 #Restart
 #restart-computer

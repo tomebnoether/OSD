@@ -1,4 +1,4 @@
-﻿#to Run, boot OSDCloudUSB, at the PS Prompt: iex (irm https://raw.githubusercontent.com/tomebnoether/OSD/refs/heads/main/Start-OSD2.ps1)
+#to Run, boot OSDCloudUSB, at the PS Prompt: iex (irm https://raw.githubusercontent.com/tomebnoether/OSD/refs/heads/main/Start-OSD2.ps1)
 
 #region Initialization
 function Write-DarkGrayDate {
@@ -104,8 +104,8 @@ $Global:MyOSDCloud = [ordered]@{
     CheckSHA1 = [bool]$true
 }
 
-#Testing MS Update Catalog Driver Sync
-#$Global:MyOSDCloud.DriverPackName = 'Microsoft Update Catalog'
+
+$Global:MyOSDCloud.DriverPackName = 'none'
 
 #Used to Determine Driver Pack
 $DriverPack = Get-OSDCloudDriverPack -Product $Product -OSVersion $OSVersion -OSReleaseID $OSReleaseID
@@ -113,9 +113,9 @@ $DriverPack = Get-OSDCloudDriverPack -Product $Product -OSVersion $OSVersion -OS
 if ($DriverPack){
     $Global:MyOSDCloud.DriverPackName = $DriverPack.Name
 }
-#$Global:MyOSDCloud.DriverPackName = "None"
 
-#If Drivers are expanded on the USB Drive, disable installing a Driver Pack
+
+#Search for Drivers on USB or on GitHub Repo
 if (Test-DISMFromOSDCloudUSB){
     Write-Host "Found Driver Pack Extracted on Cloud USB Flash Drive, disabling Driver Download via OSDCloud" -ForegroundColor Green
     if ($Global:MyOSDCloud.SyncMSUpCatDriverUSB -eq $true){
@@ -158,10 +158,6 @@ if (Test-DISMFromOSDCloudUSB){
 Write-SectionHeader "OSDCloud Variables"
 Write-Output $Global:MyOSDCloud
 
-#Update Files in Module that have been updated since last PowerShell Gallery Build (Testing Only)
-#$ModulePath = (Get-ChildItem -Path "$($Env:ProgramFiles)\WindowsPowerShell\Modules\osd" | Where-Object {$_.Attributes -match "Directory"} | Select-Object -Last 1).fullname
-#import-module "$ModulePath\OSD.psd1" -Force
-
 #Launch OSDCloud
 Write-SectionHeader -Message "Starting OSDCloud"
 Write-Host "Start-OSDCloud -OSName $OSName -OSEdition $OSEdition -OSActivation $OSActivation -OSLanguage $OSLanguage" -ForegroundColor Gray
@@ -201,11 +197,6 @@ catch {
     Write-Host "Continuing with deployment..." -ForegroundColor Yellow
 }
 
-<#Used in Testing "Beta Gary Modules which I've updated on the USB Stick"
-$OfflineModulePath = (Get-ChildItem -Path "C:\Program Files\WindowsPowerShell\Modules\osd" | Where-Object {$_.Attributes -match "Directory"} | Select-Object -Last 1).fullname
-Write-Host -ForegroundColor Yellow "Updating $OfflineModulePath using $ModulePath - For Dev Purposes Only"
-Copy-Item "$ModulePath\*" "$OfflineModulePath" -Force -Recurse
-#>
 
 #Copy CMTrace Local:
 if (Test-Path -Path "x:\windows\system32\cmtrace.exe"){
